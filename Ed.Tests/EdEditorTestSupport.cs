@@ -10,11 +10,23 @@ internal static class EdEditorTestSupport
         return CreateEditor(out _, out _);
     }
 
+    public static EdEditor CreateEditor(IEdRegexEngine regexEngine)
+    {
+        return CreateEditor(regexEngine, out _, out _);
+    }
+
     public static EdEditor CreateEditor(out FakeEdFileSystem fileSystem, out FakeEdShell shell)
     {
         fileSystem = new FakeEdFileSystem();
         shell = new FakeEdShell();
         return new EdEditor(fileSystem, shell);
+    }
+
+    public static EdEditor CreateEditor(IEdRegexEngine regexEngine, out FakeEdFileSystem fileSystem, out FakeEdShell shell)
+    {
+        fileSystem = new FakeEdFileSystem();
+        shell = new FakeEdShell();
+        return new EdEditor(fileSystem, shell, regexEngine);
     }
 
     public static FileCase FileCaseAt(int index)

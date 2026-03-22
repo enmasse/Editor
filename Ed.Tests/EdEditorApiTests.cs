@@ -324,6 +324,23 @@ public class EdEditorApiTests
     }
 
     [Test]
+    public async Task Search_UsesInjectedRegexEngine()
+    {
+        // Verifies search routes pattern matching through the injected regex engine abstraction.
+        var regexEngine = new FakeEdRegexEngine
+        {
+            IsMatchHandler = static (pattern, input) => string.Equals(pattern, "[custom", StringComparison.Ordinal)
+                && string.Equals(input, "target", StringComparison.Ordinal)
+        };
+        var editor = CreateEditor(regexEngine);
+        editor.Append(afterLine: null, new[] { "before", "target", "after" });
+
+        var lineNumber = editor.Search("[custom", EdSearchDirection.Forward, startLine: 1);
+
+        await Assert.That(lineNumber).IsEqualTo(2);
+    }
+
+    [Test]
     public async Task Search_UsesRegexPatternMatching()
     {
         // Verifies search evaluates patterns using the .NET Regex engine.
@@ -358,6 +375,23 @@ public class EdEditorApiTests
         editor.Substitute(new EdLineRange(1, 1), @"item-(\d+)", "[$1]");
 
         await Assert.That(string.Join("\n", editor.Print())).IsEqualTo("prefix-[42]-item-84-suffix");
+    }
+
+    [Test]
+    public async Task Substitute_UsesInjectedRegexEngine()
+    {
+        // Verifies substitute uses the injected regex engine abstraction for match and replacement operations.
+        var regexEngine = new FakeEdRegexEngine
+        {
+            MatchHandler = static (pattern, input, startAt) => CreateCustomMatch(pattern, input, startAt),
+            ReplaceWithCountHandler = static (pattern, input, replacement, count, startAt) => ReplaceCustomMatch(pattern, input, replacement, count, startAt)
+        };
+        var editor = CreateEditor(regexEngine);
+        editor.Append(afterLine: null, new[] { "before target after" });
+
+        editor.Substitute(new EdLineRange(1, 1), "[custom", "done");
+
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo("before done after");
     }
 
     [Test]
@@ -541,11 +575,62 @@ public class EdEditorApiTests
         return CreateEditor(out _, out _);
     }
 
+    private static EdEditor CreateEditor(IEdRegexEngine regexEngine)
+    {
+        return CreateEditor(regexEngine, out _, out _);
+    }
+
     private static EdEditor CreateEditor(out FakeEdFileSystem fileSystem, out FakeEdShell shell)
     {
         fileSystem = new FakeEdFileSystem();
         shell = new FakeEdShell();
         return new EdEditor(fileSystem, shell);
+    }
+
+    private static EdEditor CreateEditor(IEdRegexEngine regexEngine, out FakeEdFileSystem fileSystem, out FakeEdShell shell)
+    {
+        fileSystem = new FakeEdFileSystem();
+        shell = new FakeEdShell();
+        return new EdEditor(fileSystem, shell, regexEngine);
+    }
+
+    private static EdRegexMatch CreateCustomMatch(string pattern, string input, int startAt)
+    {
+        if (!string.Equals(pattern, "[custom", StringComparison.Ordinal))
+        {
+            return EdRegexMatch.None;
+        }
+
+        var matchIndex = input.IndexOf("target", startAt, StringComparison.Ordinal);
+
+        if (matchIndex < 0)
+        {
+            return EdRegexMatch.None;
+        }
+
+        return new EdRegexMatch(
+            success: true,
+            index: matchIndex,
+            length: "target".Length,
+            expandReplacement: replacement => replacement);
+    }
+
+    private static string ReplaceCustomMatch(string pattern, string input, string replacement, int count, int startAt)
+    {
+        if (!string.Equals(pattern, "[custom", StringComparison.Ordinal) || count <= 0)
+        {
+            return input;
+        }
+
+        var matchIndex = input.IndexOf("target", startAt, StringComparison.Ordinal);
+
+        if (matchIndex < 0)
+        {
+            return input;
+        }
+
+        return input.Remove(matchIndex, "target".Length)
+            .Insert(matchIndex, replacement);
     }
 
     private static void SeedFile(FakeEdFileSystem fileSystem, string path, string fullPath, string[] lines)

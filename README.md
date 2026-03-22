@@ -6,11 +6,12 @@ The repository contains a reusable editor core, a console application that expos
 
 ## Solution layout
 
-- `Editor.slnx` - solution file for the workspace
 - `Ed/` - core editor library
 - `Ed.Cli/` - console host that publishes a self-contained `ed` executable
 - `Ed.Tests/` - automated tests built with `TUnit` and `FsCheck`
 - `LOG.md` - running development log for the project history
+
+The workspace currently contains the individual project files rather than a checked-in solution file.
 
 ## Projects
 
@@ -21,6 +22,8 @@ The `Ed` project contains the main editing engine:
 - `EdEditor` - in-memory buffer management and command execution
 - `EdFileSystem` - concrete filesystem abstraction
 - `EdShell` - concrete shell abstraction backed by `pwsh.exe`
+- `IEdRegexEngine` - injectable regex abstraction used by search and substitution flows
+- `DotNetEdRegexEngine` - default regex implementation backed by `.NET` regular expressions
 - supporting models and enums for line ranges, print modes, write modes, search direction, and substitution options
 
 ### `Ed.Cli`
@@ -29,7 +32,7 @@ The `Ed.Cli` project is the command-line host.
 
 It:
 
-- creates an `EdEditor` instance with the concrete filesystem and shell implementations
+- creates an `EdEditor` instance with the concrete filesystem, shell, and regex implementations
 - accepts an optional file path argument
 - reads commands from standard input
 - supports multiline text entry for `a`, `i`, and `c`
@@ -49,7 +52,7 @@ The test project covers:
 - integration between `EdEditor`, `EdFileSystem`, and `EdShell`
 - end-to-end CLI execution through the built `ed.exe`
 
-The current suite contains 142 passing tests.
+The current suite contains 214 passing tests and 2 skipped tests.
 
 ## Implemented command surface
 
@@ -74,7 +77,9 @@ Address parsing includes support for:
 - search-based addresses
 - range separators `,` and `;`
 
-Regex support is implemented with `.NET` regular expressions rather than canonical UNIX `ed` regex semantics.
+Regex support is implemented through the injectable `IEdRegexEngine` abstraction.
+
+The default CLI wiring uses `DotNetEdRegexEngine`, so the current behavior still follows `.NET` regular expressions rather than canonical UNIX `ed` regex semantics.
 
 ## Current scope
 
@@ -158,6 +163,6 @@ q
 
 ## Notes
 
-- external environment access is abstracted behind `IEdFileSystem` and `IEdShell`
+- external environment access is abstracted behind `IEdFileSystem`, `IEdShell`, and `IEdRegexEngine`
 - the CLI host is intentionally thin and delegates editor behavior to `EdEditor`
 - the development history is tracked in `LOG.md`

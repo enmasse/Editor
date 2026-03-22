@@ -120,3 +120,78 @@ internal sealed class FakeEdShell : IEdShell
         ExecutedCommands.Add(commandText);
     }
 }
+
+internal sealed class FakeEdRegexEngine : IEdRegexEngine
+{
+    public Func<string, string, bool>? IsMatchHandler { get; set; }
+
+    public Func<string, string, string, string>? ReplaceHandler { get; set; }
+
+    public Func<string, string, string, int, int, string>? ReplaceWithCountHandler { get; set; }
+
+    public Func<string, string, int, EdRegexMatch>? MatchHandler { get; set; }
+
+    public bool IsMatch(string pattern, string input)
+    {
+        if (IsMatchHandler is not null)
+        {
+            return IsMatchHandler(pattern, input);
+        }
+
+        return input.Contains(pattern, StringComparison.Ordinal);
+    }
+
+    public string Replace(string pattern, string input, string replacement)
+    {
+        if (ReplaceHandler is not null)
+        {
+            return ReplaceHandler(pattern, input, replacement);
+        }
+
+        return input.Replace(pattern, replacement, StringComparison.Ordinal);
+    }
+
+    public string Replace(string pattern, string input, string replacement, int count, int startAt)
+    {
+        if (ReplaceWithCountHandler is not null)
+        {
+            return ReplaceWithCountHandler(pattern, input, replacement, count, startAt);
+        }
+
+        if (count <= 0)
+        {
+            return input;
+        }
+
+        var matchIndex = input.IndexOf(pattern, startAt, StringComparison.Ordinal);
+
+        if (matchIndex < 0)
+        {
+            return input;
+        }
+
+        return input.Remove(matchIndex, pattern.Length)
+            .Insert(matchIndex, replacement);
+    }
+
+    public EdRegexMatch Match(string pattern, string input, int startAt)
+    {
+        if (MatchHandler is not null)
+        {
+            return MatchHandler(pattern, input, startAt);
+        }
+
+        var matchIndex = input.IndexOf(pattern, startAt, StringComparison.Ordinal);
+
+        if (matchIndex < 0)
+        {
+            return EdRegexMatch.None;
+        }
+
+        return new EdRegexMatch(
+            success: true,
+            index: matchIndex,
+            length: pattern.Length,
+            expandReplacement: replacement => replacement);
+    }
+}
