@@ -127,4 +127,53 @@ public class EdEditorFileCommandCoverageTests
         await Assert.That(shell.Writes[0].CommandText).IsEqualTo(commandCase.CommandText);
         await Assert.That(string.Join("\n", shell.Writes[0].Lines)).IsEqualTo("second\nthird");
     }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesWriteCommand_WhenPathIsOmitted()
+    {
+        // Verifies command parsing handles `w` by persisting the buffer to the current file name.
+        var fileCase = EdEditorTestSupport.FileCaseAt(0);
+        var editor = EdEditorTestSupport.CreateEditor(out var fileSystem, out _);
+        EdEditorTestSupport.SeedFile(fileSystem, fileCase);
+        editor.SetFileName(fileCase.Path);
+        editor.Append(afterLine: null, ["alpha", "beta"]);
+
+        var result = editor.ExecuteCommand("w");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(fileSystem.LastWritePath).IsEqualTo(fileCase.FullPath);
+        await Assert.That(string.Join("\n", fileSystem.GetStoredLines(fileCase.FullPath))).IsEqualTo("alpha\nbeta");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesAppendWriteCommand()
+    {
+        // Verifies command parsing handles `W` by appending the addressed buffer content to a file.
+        var fileCase = EdEditorTestSupport.FileCaseAt(0);
+        var editor = EdEditorTestSupport.CreateEditor(out var fileSystem, out _);
+        fileSystem.SeedFile(fileCase.FullPath, ["existing"]);
+        fileSystem.SetFullPath(fileCase.Path, fileCase.FullPath);
+        editor.Append(afterLine: null, ["first", "second", "third"]);
+
+        var result = editor.ExecuteCommand($"2,3W {fileCase.Path}");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(fileSystem.LastAppendPath).IsEqualTo(fileCase.FullPath);
+        await Assert.That(string.Join("\n", fileSystem.GetStoredLines(fileCase.FullPath))).IsEqualTo("existing\nsecond\nthird");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesEditCommand()
+    {
+        // Verifies command parsing handles `e` by replacing the buffer with the requested file contents.
+        var fileCase = EdEditorTestSupport.FileCaseAt(1);
+        var editor = EdEditorTestSupport.CreateEditor(out var fileSystem, out _);
+        EdEditorTestSupport.SeedFile(fileSystem, fileCase);
+
+        var result = editor.ExecuteCommand($"e {fileCase.Path}");
+
+        await Assert.That(result.BufferChanged).IsTrue();
+        await Assert.That(editor.CurrentFilePath).IsEqualTo(fileCase.FullPath);
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo(string.Join("\n", fileCase.Lines));
+    }
 }

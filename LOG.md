@@ -80,3 +80,19 @@
 
     Action
     - Updated `LOG.md` to append the latest prompts and actions in the requested sequential format.
+
+11. Prompt
+    > *What are we missing to implement a UNIX ed conformant CLI editor?*
+
+    Action
+    - Reviewed the existing `EdEditor` implementation and coverage to identify the remaining conformance gaps.
+    - Summarized the missing CLI host, canonical command parsing, full address syntax, regex search and substitution semantics, global command execution, and output behavior still needed for UNIX `ed` compatibility.
+
+12. Prompt
+    > *Add missing tests but don't do anything thing to the core logic yet. We're doing this the TDD way. If needed you can add to the API, but only create stubs that throws NotImplementedException.*
+
+    Action
+    - Added new red-state conformance tests for missing canonical command parsing such as `d`, `=`, `f`, `P`, forward search, backward search, and non-delete global commands.
+    - Added new red-state address parsing tests for `.`, `$`, relative backward addresses, and mark addresses.
+    - Added new red-state file-command parsing tests for `w`, `W`, and `e` command forms.
+    - Built `Ed.Tests` successfully to verify the new tests compile without changing the core editor logic.

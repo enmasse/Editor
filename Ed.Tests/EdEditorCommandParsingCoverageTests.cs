@@ -144,6 +144,100 @@ public class EdEditorCommandParsingCoverageTests
     }
 
     [Test]
+    public async Task ExecuteCommand_ParsesDeleteCommand()
+    {
+        // Verifies command parsing handles delete commands with an explicit addressed range.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha", "beta", "gamma"]);
+
+        var result = editor.ExecuteCommand("2d");
+
+        await Assert.That(result.BufferChanged).IsTrue();
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo("alpha\ngamma");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesCurrentLineNumberCommand()
+    {
+        // Verifies command parsing handles the `=` command and emits the current line number.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha", "beta", "gamma"]);
+
+        var result = editor.ExecuteCommand("=");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("3");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesFileNameDisplayCommand()
+    {
+        // Verifies command parsing handles `f` by reporting the current file name.
+        var fileCase = EdEditorTestSupport.FileCaseAt(0);
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.SetFileName(fileCase.Path);
+
+        var result = editor.ExecuteCommand("f");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo(fileCase.Path);
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesPromptToggleCommand()
+    {
+        // Verifies command parsing handles `P` by toggling prompt mode.
+        var editor = EdEditorTestSupport.CreateEditor();
+
+        var result = editor.ExecuteCommand("P");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(editor.IsPromptEnabled).IsTrue();
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesForwardSearchCommand()
+    {
+        // Verifies command parsing handles forward search commands and prints the matched line.
+        var searchCase = EdEditorTestSupport.SearchCaseAt(0);
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, searchCase.Lines);
+
+        var result = editor.ExecuteCommand($"/{searchCase.Pattern}/");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo(searchCase.Lines[1]);
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesBackwardSearchCommand()
+    {
+        // Verifies command parsing handles backward search commands and prints the matched line.
+        var searchCase = EdEditorTestSupport.SearchCaseAt(0);
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, searchCase.Lines);
+
+        var result = editor.ExecuteCommand($"?{searchCase.Pattern}?");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo(searchCase.Lines[3]);
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesGlobalPrintCommand()
+    {
+        // Verifies command parsing handles global commands whose command list prints matching lines.
+        var searchCase = EdEditorTestSupport.SearchCaseAt(0);
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, searchCase.Lines);
+
+        var result = editor.ExecuteCommand($"g/{searchCase.Pattern}/p");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo(searchCase.Lines[1]);
+    }
+
+    [Test]
     public async Task ExecuteCommand_ParsesNonMatchingGlobalDeleteCommand()
     {
         // Verifies command parsing handles non-matching global delete commands.

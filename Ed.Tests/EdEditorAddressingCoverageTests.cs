@@ -129,4 +129,57 @@ public class EdEditorAddressingCoverageTests
 
         await Assert.That(string.Join("\n", editor.Print())).IsEqualTo(searchCase.Lines[1]);
     }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesCurrentLineAddressSymbol()
+    {
+        // Verifies command parsing handles `.` as the current line address.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha", "beta", "gamma"]);
+
+        var result = editor.ExecuteCommand(".p");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("gamma");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesLastLineAddressSymbol()
+    {
+        // Verifies command parsing handles `$` as the last line address.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha", "beta", "gamma"]);
+
+        var result = editor.ExecuteCommand("$p");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("gamma");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesRelativeBackwardAddress()
+    {
+        // Verifies command parsing handles relative backward addresses from the current line.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha", "beta", "gamma"]);
+
+        var result = editor.ExecuteCommand("-1p");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("beta");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesMarkAddress()
+    {
+        // Verifies command parsing handles mark-based addresses such as `'a`.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha", "beta", "gamma"]);
+        editor.SetMark('a', 2);
+
+        var result = editor.ExecuteCommand("'ap");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("beta");
+    }
 }
