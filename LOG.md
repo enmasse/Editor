@@ -183,3 +183,22 @@
 
     Action
     - Updated `LOG.md` to append the latest prompts and actions in the requested sequential format.
+
+24. Prompt
+    > *Can we clean up EdEditor so that it's not so big. Move some classes or stuff into other files?*
+
+    Action
+    - Reviewed the `Ed` project structure and identified the public editor contracts and internal helper records embedded in `EdEditor.cs` as low-risk extraction targets.
+    - Moved editor enums into `Ed\EdEnums.cs`.
+    - Moved editor records into `Ed\EdModels.cs`.
+    - Moved `IEdFileSystem` into `Ed\IEdFileSystem.cs`.
+    - Moved `IEdShell` into `Ed\IEdShell.cs`.
+    - Moved internal helper records into `Ed\EdEditorInternals.cs`.
+    - Removed the extracted declarations from `EdEditor.cs` so the file focuses on editor behavior.
+    - Built `Ed.Tests` and confirmed the full test suite still passed.
+
+25. Prompt
+    > *update LOG.md*
+
+    Action
+    - Updated `LOG.md` to append the latest prompts and actions in the requested sequential format.
