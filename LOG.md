@@ -202,3 +202,86 @@
 
     Action
     - Updated `LOG.md` to append the latest prompts and actions in the requested sequential format.
+
+26. Prompt
+    > *I think we're missing integration tests for the new abstractions, please fix.*
+
+    Action
+    - Reviewed the existing test coverage for `EdEditor`, `EdFileSystem`, and `EdShell`.
+    - Identified that the suite lacked end-to-end coverage using the concrete filesystem and shell abstractions together with `EdEditor`.
+    - Added `Ed.Tests\EdEditorAbstractionIntegrationTests.cs` with concrete round-trip tests for file I/O, shell I/O, and combined command execution.
+    - Ran the new integration tests and confirmed they passed.
+    - Built `Ed.Tests` successfully.
+
+27. Prompt
+    > *Do we cover the functionality of the original ed command?*
+
+    Action
+    - Reviewed the supported command surface in `EdEditor.ExecuteCommand` and compared it with classic `ed` expectations.
+    - Summarized that the project covered only the implemented subset, not the full original `ed` command set.
+
+28. Prompt
+    > *Add tests for the missing functionality.*
+
+    Action
+    - Added red tests in `Ed.Tests\EdEditorCommandParsingCoverageTests.cs` for missing classic commands `j`, `m`, `t`, and `k`.
+    - Ran the targeted command parsing suite and confirmed the new tests failed with `Unsupported command` errors.
+    - Built `Ed.Tests` successfully to preserve the red TDD state.
+
+29. Prompt
+    > *Do we have coverage of the full functionality of the original ed command?*
+
+    Action
+    - Reassessed the scope of covered commands and clarified that the suite still did not provide full original `ed` conformance coverage.
+
+30. Prompt
+    > *Add tests for all the missing functionality.*
+
+    Action
+    - Determined that the request could mean either all unsupported classic `ed` behavior as red tests or only uncovered implemented behavior.
+    - Asked for clarification before broadening the scope.
+
+31. Prompt
+    > *The first option.*
+
+    Action
+    - Added broader red-state conformance tests across `Ed.Tests\EdEditorCommandParsingCoverageTests.cs` and `Ed.Tests\EdEditorAddressingCoverageTests.cs`.
+    - Covered classic commands and behaviors including `a`, `i`, `c`, `u`, `h`, `H`, `E`, `Q`, address-only print, empty-command print, `%`, `;`, search addresses, explicit offsets, and repeated empty searches.
+    - Ran the targeted suites and confirmed multiple failures documenting the missing functionality.
+    - Built `Ed.Tests` successfully.
+
+32. Prompt
+    > *Close the gap first.*
+
+    Action
+    - Implemented the previously red command and address behaviors in `Ed\EdEditor.cs`.
+    - Added support for classic commands including `a`, `i`, `c`, `j`, `m`, `t`, `k`, `u`, `h`, `H`, `E`, and `Q`.
+    - Added default print behaviors for address-only and empty commands.
+    - Extended address parsing for `%`, `;`, search addresses, explicit offsets, and previous-search reuse.
+    - Added global substitute command-list support.
+    - Ran the full `Ed.Tests` suite and confirmed all tests passed.
+    - Built `Ed.Tests` successfully.
+
+33. Prompt
+    > *Do the tests cover the full functionality of the original ed command?*
+
+    Action
+    - Reviewed the expanded command and address coverage again.
+    - Reported that the suite was much broader but still did not prove full original `ed` conformance.
+
+34. Prompt
+    > *Can we close the gap?*
+
+    Action
+    - Assessed the remaining uncovered behaviors and confirmed the gap was closeable incrementally through additional command parsing and conformance work.
+
+35. Prompt
+    > *Close the gap.*
+
+    Action
+    - Added more tests in `Ed.Tests\EdEditorCommandParsingCoverageTests.cs` for remaining command-level gaps such as global numbered print, non-matching global substitution, and `z` scroll command parsing.
+    - Implemented the corresponding command handling in `Ed\EdEditor.cs`.
+    - Extended global command-list handling to support numbered and literal print output in addition to delete, print, and substitute flows.
+    - Added `z` command dispatch that maps to the existing scroll behavior.
+    - Ran the full `Ed.Tests` suite and confirmed all tests passed.
+    - Built `Ed.Tests` successfully.

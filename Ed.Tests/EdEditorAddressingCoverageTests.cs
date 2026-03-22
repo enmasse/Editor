@@ -170,6 +170,19 @@ public class EdEditorAddressingCoverageTests
     }
 
     [Test]
+    public async Task ExecuteCommand_ParsesExplicitBasePlusOffsetAddress()
+    {
+        // Verifies command parsing handles offsets applied to an explicit base address such as `1+1`.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha", "beta", "gamma"]);
+
+        var result = editor.ExecuteCommand("1+1p");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("beta");
+    }
+
+    [Test]
     public async Task ExecuteCommand_ParsesMarkAddress()
     {
         // Verifies command parsing handles mark-based addresses such as `'a`.
@@ -178,6 +191,86 @@ public class EdEditorAddressingCoverageTests
         editor.SetMark('a', 2);
 
         var result = editor.ExecuteCommand("'ap");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("beta");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesForwardSearchAddress()
+    {
+        // Verifies command parsing handles forward-search addresses used before another editor command.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha", "beta", "gamma"]);
+
+        var result = editor.ExecuteCommand("/beta/p");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("beta");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesBackwardSearchAddress()
+    {
+        // Verifies command parsing handles backward-search addresses used before another editor command.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha", "beta", "gamma"]);
+
+        var result = editor.ExecuteCommand("?beta?p");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("beta");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesWholeBufferShorthandRange()
+    {
+        // Verifies command parsing handles the classic `%` shorthand as the whole-buffer range.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha", "beta", "gamma"]);
+
+        var result = editor.ExecuteCommand("%p");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("alpha\nbeta\ngamma");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesSemicolonSeparatedRelativeRange()
+    {
+        // Verifies command parsing handles `;` ranges that reset the current line before resolving the next address.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha", "beta", "gamma"]);
+
+        var result = editor.ExecuteCommand("1;+1p");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("alpha\nbeta");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesRepeatedForwardSearchPattern()
+    {
+        // Verifies command parsing treats an empty forward search as reuse of the previous search pattern.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha", "beta", "gamma"]);
+        editor.ExecuteCommand("/beta/");
+
+        var result = editor.ExecuteCommand("//");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("beta");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesRepeatedBackwardSearchPattern()
+    {
+        // Verifies command parsing treats an empty backward search as reuse of the previous search pattern.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha", "beta", "gamma"]);
+        editor.ExecuteCommand("?beta?");
+
+        var result = editor.ExecuteCommand("??");
 
         await Assert.That(result.BufferChanged).IsFalse();
         await Assert.That(string.Join("\n", result.Output)).IsEqualTo("beta");

@@ -102,6 +102,33 @@ public class EdEditorCommandParsingCoverageTests
     }
 
     [Test]
+    public async Task ExecuteCommand_ParsesAddressOnlyCommand_AsPrint()
+    {
+        // Verifies command parsing treats an addressed line with no explicit suffix as the classic default print command.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha", "beta", "gamma"]);
+
+        var result = editor.ExecuteCommand("2");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("beta");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesEmptyCommand_AsPrintNextLine()
+    {
+        // Verifies command parsing treats an empty command as the classic print-next-line behavior.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha", "beta", "gamma"]);
+        editor.ExecuteCommand("1p");
+
+        var result = editor.ExecuteCommand(string.Empty);
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("beta");
+    }
+
+    [Test]
     public async Task ExecuteCommand_ParsesCurrentLineSubstituteCommand_WhenRangeIsOmitted()
     {
         // Verifies command parsing defaults substitute commands to the current line when no address is supplied.
@@ -157,6 +184,111 @@ public class EdEditorCommandParsingCoverageTests
     }
 
     [Test]
+    public async Task ExecuteCommand_ParsesAppendCommand_WithDotTerminatedInput()
+    {
+        // Verifies command parsing handles the classic `a` command with dot-terminated text input.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha"]);
+
+        var result = editor.ExecuteCommand("a\nbeta\ngamma\n.");
+
+        await Assert.That(result.BufferChanged).IsTrue();
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo("alpha\nbeta\ngamma");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesInsertCommand_WithDotTerminatedInput()
+    {
+        // Verifies command parsing handles the classic `i` command with dot-terminated text input.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha", "beta"]);
+
+        var result = editor.ExecuteCommand("1i\nzero\n.");
+
+        await Assert.That(result.BufferChanged).IsTrue();
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo("zero\nalpha\nbeta");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesChangeCommand_WithDotTerminatedInput()
+    {
+        // Verifies command parsing handles the classic `c` command with dot-terminated replacement text.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha", "beta", "gamma"]);
+
+        var result = editor.ExecuteCommand("2c\nreplacement\n.");
+
+        await Assert.That(result.BufferChanged).IsTrue();
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo("alpha\nreplacement\ngamma");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesJoinCommand()
+    {
+        // Verifies command parsing handles the classic `j` command by merging the addressed lines.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha", "beta", "gamma"]);
+
+        var result = editor.ExecuteCommand("1,2j");
+
+        await Assert.That(result.BufferChanged).IsTrue();
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo("alphabeta\ngamma");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesMoveCommand()
+    {
+        // Verifies command parsing handles the classic `m` command by relocating the addressed span.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["one", "two", "three", "four"]);
+
+        var result = editor.ExecuteCommand("2,3m0");
+
+        await Assert.That(result.BufferChanged).IsTrue();
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo("two\nthree\none\nfour");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesCopyCommand()
+    {
+        // Verifies command parsing handles the classic `t` command by duplicating the addressed span after the destination.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["one", "two", "three", "four"]);
+
+        var result = editor.ExecuteCommand("1,2t4");
+
+        await Assert.That(result.BufferChanged).IsTrue();
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo("one\ntwo\nthree\nfour\none\ntwo");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesMarkCommand()
+    {
+        // Verifies command parsing handles the classic `k` command by storing the addressed line under the requested mark.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["one", "two", "three"]);
+
+        var result = editor.ExecuteCommand("2ka");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(editor.ResolveMark('a')).IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesUndoCommand()
+    {
+        // Verifies command parsing handles the classic `u` command by restoring the prior buffer state.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha", "beta", "gamma"]);
+        editor.ExecuteCommand("2d");
+
+        var result = editor.ExecuteCommand("u");
+
+        await Assert.That(result.BufferChanged).IsTrue();
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo("alpha\nbeta\ngamma");
+    }
+
+    [Test]
     public async Task ExecuteCommand_ParsesCurrentLineNumberCommand()
     {
         // Verifies command parsing handles the `=` command and emits the current line number.
@@ -196,6 +328,38 @@ public class EdEditorCommandParsingCoverageTests
     }
 
     [Test]
+    public async Task ExecuteCommand_ParsesVerboseErrorToggleCommand()
+    {
+        // Verifies command parsing handles the classic `H` command by toggling verbose error mode.
+        var editor = EdEditorTestSupport.CreateEditor();
+
+        var result = editor.ExecuteCommand("H");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(editor.IsVerboseErrorsEnabled).IsTrue();
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesHelpCommand()
+    {
+        // Verifies command parsing handles the classic `h` command by reporting the last editor error.
+        var editor = EdEditorTestSupport.CreateEditor();
+
+        try
+        {
+            editor.ExecuteCommand("bogus");
+        }
+        catch (NotSupportedException)
+        {
+        }
+
+        var result = editor.ExecuteCommand("h");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("Unsupported command 'bogus'.");
+    }
+
+    [Test]
     public async Task ExecuteCommand_ParsesForwardSearchCommand()
     {
         // Verifies command parsing handles forward search commands and prints the matched line.
@@ -207,6 +371,33 @@ public class EdEditorCommandParsingCoverageTests
 
         await Assert.That(result.BufferChanged).IsFalse();
         await Assert.That(string.Join("\n", result.Output)).IsEqualTo(searchCase.Lines[1]);
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesGlobalNumberedPrintCommand()
+    {
+        // Verifies command parsing handles global commands whose command list uses numbered print output.
+        var searchCase = EdEditorTestSupport.SearchCaseAt(0);
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, searchCase.Lines);
+
+        var result = editor.ExecuteCommand($"g/{searchCase.Pattern}/n");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo($"2\t{searchCase.Lines[1]}");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesGlobalSubstituteCommandList()
+    {
+        // Verifies command parsing handles classic global command lists that execute non-print, non-delete editor commands.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["match-one", "skip", "match-two"]);
+
+        var result = editor.ExecuteCommand("g/match/s/match/replaced/");
+
+        await Assert.That(result.BufferChanged).IsTrue();
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo("replaced-one\nskip\nreplaced-two");
     }
 
     [Test]
@@ -275,6 +466,89 @@ public class EdEditorCommandParsingCoverageTests
 
         await Assert.That(result.BufferChanged).IsTrue();
         await Assert.That(string.Join("\n", editor.Print())).IsEqualTo(searchCase.Lines[1]);
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesNonMatchingGlobalSubstituteCommand()
+    {
+        // Verifies command parsing handles non-matching global commands whose command list mutates each selected line.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["keep-one", "skip", "keep-two"]);
+
+        var result = editor.ExecuteCommand("v/skip/s/keep/replaced/");
+
+        await Assert.That(result.BufferChanged).IsTrue();
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo("replaced-one\nskip\nreplaced-two");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesScrollCommand()
+    {
+        // Verifies command parsing handles the classic `z` command by printing a window of lines.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["one", "two", "three", "four"]);
+
+        var result = editor.ExecuteCommand("2z2");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("two\nthree");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesGlobalLiteralPrintCommand()
+    {
+        // Verifies command parsing handles global commands whose command list uses literal print output.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha", "match\tbeta", "tail"]);
+
+        var result = editor.ExecuteCommand("g/match/l");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("match\\tbeta$");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesForceEditCommand()
+    {
+        // Verifies command parsing handles the classic `E` command by discarding modifications before loading a new file.
+        var originalFile = EdEditorTestSupport.FileCaseAt(0);
+        var replacementFile = EdEditorTestSupport.FileCaseAt(1);
+        var editor = EdEditorTestSupport.CreateEditor(out var fileSystem, out _);
+        EdEditorTestSupport.SeedFile(fileSystem, originalFile);
+        EdEditorTestSupport.SeedFile(fileSystem, replacementFile);
+        editor.Edit(originalFile.Path);
+        editor.Append(afterLine: null, ["dirty"]);
+
+        var result = editor.ExecuteCommand($"E {replacementFile.Path}");
+
+        await Assert.That(result.BufferChanged).IsTrue();
+        await Assert.That(editor.CurrentFilePath).IsEqualTo(replacementFile.FullPath);
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo(string.Join("\n", replacementFile.Lines));
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesForceQuitCommand()
+    {
+        // Verifies command parsing handles the classic `Q` command by closing a modified session without requiring a write.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha"]);
+
+        var result = editor.ExecuteCommand("Q");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+
+        var isClosed = false;
+
+        try
+        {
+            editor.Print();
+        }
+        catch (InvalidOperationException)
+        {
+            isClosed = true;
+        }
+
+        await Assert.That(isClosed).IsTrue();
     }
 
     [Test]
