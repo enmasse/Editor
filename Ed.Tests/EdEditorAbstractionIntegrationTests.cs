@@ -42,7 +42,7 @@ public class EdEditorAbstractionIntegrationTests
     [Test]
     public async Task ExecuteCommand_UsesConcreteAbstractions_ForFileAndShellFlows()
     {
-        // Verifies command execution can coordinate concrete file and shell abstractions in one end-to-end flow.
+        // Verifies command execution can coordinate concrete file and shell abstractions in one end-to-end flow while shell reads remain status-only.
         using var sandbox = TemporaryDirectory.Create("EdEditorAbstractionIntegrationTests");
         var editor = new EdEditor(new EdFileSystem(), new EdShell());
         var inputPath = Path.Combine(sandbox.DirectoryPath, "input.txt");
@@ -55,7 +55,7 @@ public class EdEditorAbstractionIntegrationTests
 
         await Assert.That(editResult.BufferChanged).IsTrue();
         await Assert.That(readResult.BufferChanged).IsTrue();
-        await Assert.That(readResult.Output).IsEquivalentTo(["one", "two", "three"]);
+        await Assert.That(readResult.Output.Count).IsEqualTo(0);
         await Assert.That(writeResult.BufferChanged).IsFalse();
         await Assert.That(File.ReadAllLines(outputPath)).IsEquivalentTo(["one", "two", "three"]);
     }

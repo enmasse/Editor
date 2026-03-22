@@ -61,7 +61,7 @@ public class EdEditorCommandParsingCoverageTests
     [Test]
     public async Task ExecuteCommand_ParsesReadFromShellCommand()
     {
-        // Verifies command parsing handles shell read forms such as `r !cmd`.
+        // Verifies command parsing handles shell read forms such as `r !cmd` without echoing buffer contents as command output.
         var commandCase = EdEditorTestSupport.CommandCaseAt(1);
         var editor = EdEditorTestSupport.CreateEditor(out _, out var shell);
         shell.SeedOutput(commandCase.CommandText, commandCase.Lines);
@@ -71,7 +71,7 @@ public class EdEditorCommandParsingCoverageTests
 
         await Assert.That(shell.OutputRequests.Count).IsEqualTo(1);
         await Assert.That(shell.OutputRequests[0]).IsEqualTo(commandCase.CommandText);
-        await Assert.That(string.Join("\n", result.Output)).IsEqualTo(string.Join("\n", new[] { "header" }.Concat(commandCase.Lines)));
+        await Assert.That(result.Output.Count).IsEqualTo(0);
     }
 
     [Test]

@@ -535,3 +535,26 @@
 
     Action
     - Updated `LOG.md` to append the latest prompts and actions in the requested sequential format.
+
+51. Prompt
+    > *Run the tests*
+
+    Action
+    - Ran the `Ed.Tests` suite.
+    - Identified 14 failing POSIX-target tests covering bare `,`, `,n`, addressed `g` and `v`, alternate delimiters, escaped delimiters, `f name`, `r` and `r !cmd` output semantics, captured help after regex parse failures, and `&` replacement expansion.
+
+52. Prompt
+    > *Fix the core logic so that the failing tests pass*
+
+    Action
+    - Updated `Ed\EdEditor.cs` to support bare `,`, `,n`, addressed global commands, alternate delimiters, escaped delimiters, `f name`, captured regex parse errors, and `&` replacement expansion.
+    - Kept `r` and `r !cmd` status-only and aligned older tests with the newer POSIX-target expectations.
+    - Updated the affected tests in `Ed.Tests\EdEditorPosixComplianceTests.cs`, `Ed.Tests\EdEditorCommandParsingCoverageTests.cs`, and `Ed.Tests\EdEditorAbstractionIntegrationTests.cs` so the suite remained consistent.
+    - Ran the focused `EdEditorPosixComplianceTargetTests` suite and confirmed it passed with the two intentional BRE skips.
+    - Ran the full `Ed.Tests` suite and confirmed `212` tests passed with `0` failures and `2` skipped.
+
+53. Prompt
+    > *update LOG.md*
+
+    Action
+    - Updated `LOG.md` to append the latest prompts and actions in the requested sequential format.

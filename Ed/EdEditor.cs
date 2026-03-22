@@ -486,9 +486,15 @@ public sealed class EdEditor
     {
         var trimmed = commandText.Trim();
 
-        if (string.Equals(trimmed, ",p", StringComparison.Ordinal))
+        if (string.Equals(trimmed, ",", StringComparison.Ordinal) || string.Equals(trimmed, ",p", StringComparison.Ordinal))
         {
             var output = Print();
+            return CreateCommandResult(bufferChanged: false, output);
+        }
+
+        if (string.Equals(trimmed, ",n", StringComparison.Ordinal))
+        {
+            var output = Print(mode: EdPrintMode.Numbered);
             return CreateCommandResult(bufferChanged: false, output);
         }
 
@@ -504,21 +510,11 @@ public sealed class EdEditor
             return CreateCommandResult(bufferChanged: false, []);
         }
 
-        if (IsSearchCommand(trimmed))
+        if (TryParseSearchCommand(trimmed, out var searchDirection, out var searchPattern))
         {
-            var pattern = ResolveSearchPattern(trimmed[1..^1]);
-            EdSearchDirection direction;
+            var pattern = ResolveSearchPattern(searchPattern);
 
-            if (trimmed[0] == '/')
-            {
-                direction = EdSearchDirection.Forward;
-            }
-            else
-            {
-                direction = EdSearchDirection.Backward;
-            }
-
-            if (direction == EdSearchDirection.Backward
+            if (searchDirection == EdSearchDirection.Backward
                 && _currentLineNumber >= 1
                 && _currentLineNumber <= _lines.Count
                 && IsPatternMatch(_lines[_currentLineNumber - 1], pattern))
@@ -528,47 +524,19 @@ public sealed class EdEditor
                 return CreateCommandResult(bufferChanged: false, currentLineOutput);
             }
 
-            var lineNumber = Search(pattern, direction);
+            var lineNumber = Search(pattern, searchDirection);
             var output = Print(new EdLineRange(lineNumber, lineNumber));
             return CreateCommandResult(bufferChanged: false, output);
-        }
-
-        if (TryParseGlobalCommand(trimmed, out var globalMode, out var globalPattern, out var globalCommandList))
-        {
-            if (string.Equals(globalCommandList, "d", StringComparison.Ordinal))
-            {
-                Global(null, globalPattern, globalCommandList, globalMode);
-                return CreateCommandResult(bufferChanged: true, []);
-            }
-            else if (string.Equals(globalCommandList, "p", StringComparison.Ordinal))
-            {
-                var output = PrintGlobalMatches(null, globalPattern, globalMode, EdPrintMode.Normal);
-                return CreateCommandResult(bufferChanged: false, output);
-            }
-            else if (string.Equals(globalCommandList, "n", StringComparison.Ordinal))
-            {
-                var output = PrintGlobalMatches(null, globalPattern, globalMode, EdPrintMode.Numbered);
-                return CreateCommandResult(bufferChanged: false, output);
-            }
-            else if (string.Equals(globalCommandList, "l", StringComparison.Ordinal))
-            {
-                var output = PrintGlobalMatches(null, globalPattern, globalMode, EdPrintMode.Literal);
-                return CreateCommandResult(bufferChanged: false, output);
-            }
-            else if (globalCommandList.StartsWith('s'))
-            {
-                ExecuteGlobalSubstitute(null, globalPattern, globalCommandList, globalMode);
-                return CreateCommandResult(bufferChanged: true, []);
-            }
-            else
-            {
-                throw new NotSupportedException("Only `d`, `p`, `n`, `l`, and `s` are supported by the current global implementation.");
-            }
         }
 
         var parsedCommand = ParseCommand(commandText);
         var range = parsedCommand.Range;
         var command = parsedCommand.CommandText;
+
+        if (TryParseGlobalCommand(command, out var globalMode, out var globalPattern, out var globalCommandList))
+        {
+            return ExecuteGlobalCommand(parsedCommand.HasAddress ? range : null, globalMode, globalPattern, globalCommandList);
+        }
 
         if (string.IsNullOrEmpty(command))
         {
@@ -635,7 +603,7 @@ public sealed class EdEditor
         {
             var substituteBody = command[1..];
 
-            if (!TryParseDelimitedArguments(substituteBody, '/', out var pattern, out var replacement, out var flags))
+            if (!TryParseDelimitedArguments(substituteBody, out var pattern, out var replacement, out var flags))
             {
                 throw new NotSupportedException($"Unsupported command '{commandText}'.");
             }
@@ -757,6 +725,13 @@ public sealed class EdEditor
 
         if (command[0] == 'f')
         {
+            var argument = command.Length > 1 ? command[1..].TrimStart() : string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(argument))
+            {
+                SetFileName(argument);
+            }
+
             return CreateCommandResult(bufferChanged: false, [_currentFileDisplayPath ?? _currentFilePath ?? string.Empty]);
         }
 
@@ -845,7 +820,7 @@ public sealed class EdEditor
                 Read(argument, address);
             }
 
-            return CreateCommandResult(bufferChanged: true, Print());
+            return CreateCommandResult(bufferChanged: true, []);
         }
 
         if (command[0] == 'e' || command[0] == 'E')
@@ -873,6 +848,7 @@ public sealed class EdEditor
     {
         return exception is InvalidOperationException
             || exception is NotSupportedException
+            || exception is ArgumentException
             || exception is ArgumentOutOfRangeException
             || exception is KeyNotFoundException;
     }
@@ -995,7 +971,7 @@ public sealed class EdEditor
 
         var substituteBody = commandList[1..];
 
-        if (!TryParseDelimitedArguments(substituteBody, '/', out var substitutePattern, out var replacement, out var flags))
+        if (!TryParseDelimitedArguments(substituteBody, out var substitutePattern, out var replacement, out var flags))
         {
             throw new NotSupportedException($"Unsupported command '{commandList}'.");
         }
@@ -1080,27 +1056,61 @@ public sealed class EdEditor
         return int.TryParse(digits, out var occurrence) && occurrence > 0 ? occurrence : 1;
     }
 
-    private bool IsSearchCommand(string commandText)
+    private EdCommandResult ExecuteGlobalCommand(EdLineRange? range, EdGlobalMode mode, string pattern, string commandList)
     {
-        if (commandText.Length < 2)
+        if (string.Equals(commandList, "d", StringComparison.Ordinal))
+        {
+            Global(range, pattern, commandList, mode);
+            return CreateCommandResult(bufferChanged: true, []);
+        }
+        else if (string.Equals(commandList, "p", StringComparison.Ordinal))
+        {
+            var output = PrintGlobalMatches(range, pattern, mode, EdPrintMode.Normal);
+            return CreateCommandResult(bufferChanged: false, output);
+        }
+        else if (string.Equals(commandList, "n", StringComparison.Ordinal))
+        {
+            var output = PrintGlobalMatches(range, pattern, mode, EdPrintMode.Numbered);
+            return CreateCommandResult(bufferChanged: false, output);
+        }
+        else if (string.Equals(commandList, "l", StringComparison.Ordinal))
+        {
+            var output = PrintGlobalMatches(range, pattern, mode, EdPrintMode.Literal);
+            return CreateCommandResult(bufferChanged: false, output);
+        }
+        else if (commandList.StartsWith('s'))
+        {
+            ExecuteGlobalSubstitute(range, pattern, commandList, mode);
+            return CreateCommandResult(bufferChanged: true, []);
+        }
+        else
+        {
+            throw new NotSupportedException("Only `d`, `p`, `n`, `l`, and `s` are supported by the current global implementation.");
+        }
+    }
+
+    private static bool TryParseSearchCommand(string commandText, out EdSearchDirection direction, out string pattern)
+    {
+        direction = EdSearchDirection.Forward;
+        pattern = string.Empty;
+
+        if (commandText.Length < 2 || (commandText[0] != '/' && commandText[0] != '?'))
         {
             return false;
         }
 
-        var delimiter = commandText[0];
-
-        if (delimiter != '/' && delimiter != '?')
+        if (!TryParseDelimitedValue(commandText, out var delimiter, out pattern, out var remainder))
         {
             return false;
         }
 
-        if (commandText[^1] != delimiter)
+        if (!string.IsNullOrEmpty(remainder))
         {
             return false;
         }
 
-        var delimiterCount = commandText.Count(value => value == delimiter);
-        return delimiterCount == 2;
+        direction = delimiter == '/' ? EdSearchDirection.Forward : EdSearchDirection.Backward;
+        return true;
     }
 
     private bool TryParseGlobalCommand(string commandText, out EdGlobalMode mode, out string pattern, out string commandList)
@@ -1109,21 +1119,23 @@ public sealed class EdEditor
         pattern = string.Empty;
         commandList = string.Empty;
 
-        if (commandText.Length < 4 || (commandText[0] != 'g' && commandText[0] != 'v') || commandText[1] != '/')
+        if (commandText.Length < 4 || (commandText[0] != 'g' && commandText[0] != 'v'))
         {
             return false;
         }
 
-        var separatorIndex = commandText.IndexOf('/', 2);
+        if (!TryParseDelimitedValue(commandText[1..], out _, out pattern, out var remainder))
+        {
+            return false;
+        }
 
-        if (separatorIndex < 0 || separatorIndex == commandText.Length - 1)
+        if (string.IsNullOrWhiteSpace(remainder))
         {
             return false;
         }
 
         mode = commandText[0] == 'v' ? EdGlobalMode.NonMatch : EdGlobalMode.Match;
-        pattern = commandText[2..separatorIndex];
-        commandList = commandText[(separatorIndex + 1)..].Trim();
+        commandList = remainder.Trim();
         return true;
     }
 
@@ -1232,21 +1244,14 @@ public sealed class EdEditor
         else if (commandText[index] == '/' || commandText[index] == '?')
         {
             usedSearchAddress = true;
-            var delimiter = commandText[index];
-            var start = ++index;
+            var searchInput = commandText[index..];
 
-            while (index < commandText.Length && commandText[index] != delimiter)
-            {
-                index++;
-            }
-
-            if (index >= commandText.Length)
+            if (!TryParseDelimitedValue(searchInput, out var delimiter, out var pattern, out var remainder))
             {
                 throw new NotSupportedException($"Unsupported command '{commandText}'.");
             }
 
-            var pattern = commandText[start..index];
-            index++;
+            index = commandText.Length - remainder.Length;
             var direction = delimiter == '/' ? EdSearchDirection.Forward : EdSearchDirection.Backward;
             address = FindSearchLine(pattern, direction, currentLine == 0 ? 1 : currentLine);
         }
@@ -1279,35 +1284,93 @@ public sealed class EdEditor
         return address;
     }
 
-    private static bool TryParseDelimitedArguments(string input, char delimiter, out string first, out string second, out string remainder)
+    private static bool TryParseDelimitedArguments(string input, out string first, out string second, out string remainder)
     {
         first = string.Empty;
         second = string.Empty;
         remainder = string.Empty;
 
-        if (string.IsNullOrEmpty(input) || input[0] != delimiter)
+        if (string.IsNullOrEmpty(input))
         {
             return false;
         }
 
-        var secondDelimiterIndex = input.IndexOf(delimiter, 1);
+        var delimiter = input[0];
+
+        var secondDelimiterIndex = FindClosingDelimiter(input, 1, delimiter);
 
         if (secondDelimiterIndex < 0)
         {
             return false;
         }
 
-        var thirdDelimiterIndex = input.IndexOf(delimiter, secondDelimiterIndex + 1);
+        var thirdDelimiterIndex = FindClosingDelimiter(input, secondDelimiterIndex + 1, delimiter);
 
         if (thirdDelimiterIndex < 0)
         {
             return false;
         }
 
-        first = input[1..secondDelimiterIndex];
-        second = input[(secondDelimiterIndex + 1)..thirdDelimiterIndex];
+        first = UnescapeDelimiter(input[1..secondDelimiterIndex], delimiter);
+        second = UnescapeDelimiter(input[(secondDelimiterIndex + 1)..thirdDelimiterIndex], delimiter);
         remainder = input[(thirdDelimiterIndex + 1)..];
         return true;
+    }
+
+    private static bool TryParseDelimitedValue(string input, out char delimiter, out string value, out string remainder)
+    {
+        delimiter = default;
+        value = string.Empty;
+        remainder = string.Empty;
+
+        if (string.IsNullOrEmpty(input))
+        {
+            return false;
+        }
+
+        delimiter = input[0];
+        var closingDelimiterIndex = FindClosingDelimiter(input, 1, delimiter);
+
+        if (closingDelimiterIndex < 0)
+        {
+            return false;
+        }
+
+        value = UnescapeDelimiter(input[1..closingDelimiterIndex], delimiter);
+        remainder = input[(closingDelimiterIndex + 1)..];
+        return true;
+    }
+
+    private static int FindClosingDelimiter(string input, int startIndex, char delimiter)
+    {
+        var escaped = false;
+
+        for (var index = startIndex; index < input.Length; index++)
+        {
+            if (escaped)
+            {
+                escaped = false;
+                continue;
+            }
+
+            if (input[index] == '\\')
+            {
+                escaped = true;
+                continue;
+            }
+
+            if (input[index] == delimiter)
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    private static string UnescapeDelimiter(string value, char delimiter)
+    {
+        return value.Replace($"\\{delimiter}", delimiter.ToString(), StringComparison.Ordinal);
     }
 
     private IReadOnlyList<string> PrintGlobalMatches(EdLineRange? range, string pattern, EdGlobalMode mode, EdPrintMode printMode)
@@ -1576,6 +1639,7 @@ public sealed class EdEditor
     {
         replaced = false;
         nextSearchIndex = 0;
+        var normalizedReplacement = NormalizeReplacementText(replacement);
 
         if (string.IsNullOrEmpty(pattern))
         {
@@ -1587,7 +1651,7 @@ public sealed class EdEditor
             var globalRegex = CreateRegex(pattern);
             replaced = globalRegex.IsMatch(source);
             nextSearchIndex = source.Length;
-            return globalRegex.Replace(source, replacement);
+            return globalRegex.Replace(source, normalizedReplacement);
         }
 
         var regex = CreateRegex(pattern);
@@ -1609,10 +1673,10 @@ public sealed class EdEditor
 
             if (matchCount == targetOccurrence)
             {
-                var replacementText = match.Result(replacement);
+                var replacementText = match.Result(normalizedReplacement);
                 replaced = true;
                 nextSearchIndex = match.Index + replacementText.Length;
-                return regex.Replace(source, replacement, 1, match.Index);
+                return regex.Replace(source, normalizedReplacement, 1, match.Index);
             }
 
             currentIndex = match.Index + match.Length;
@@ -1631,6 +1695,30 @@ public sealed class EdEditor
         }
 
         return source;
+    }
+
+    private static string NormalizeReplacementText(string replacement)
+    {
+        var builder = new System.Text.StringBuilder();
+
+        for (var index = 0; index < replacement.Length; index++)
+        {
+            if (replacement[index] == '\\' && index + 1 < replacement.Length && replacement[index + 1] == '&')
+            {
+                builder.Append('&');
+                index++;
+            }
+            else if (replacement[index] == '&')
+            {
+                builder.Append("$0");
+            }
+            else
+            {
+                builder.Append(replacement[index]);
+            }
+        }
+
+        return builder.ToString();
     }
 
     private EdCommandResult CreateCommandResult(bool bufferChanged, IReadOnlyList<string> output)

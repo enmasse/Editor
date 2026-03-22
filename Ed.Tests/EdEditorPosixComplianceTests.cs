@@ -415,7 +415,7 @@ public class EdEditorPosixComplianceBaselineTests
     [Test]
     public async Task ExecuteCommand_ZeroAddressReadFromShell_InsertsOutputBeforeFirstLine()
     {
-        // Verifies `0r !cmd` inserts shell output before the first buffer line.
+        // Verifies `0r !cmd` inserts shell output before the first buffer line without echoing the whole buffer as command output.
         var commandCase = EdEditorTestSupport.CommandCaseAt(0);
         var editor = EdEditorTestSupport.CreateEditor(out _, out var shell);
         shell.SeedOutput(commandCase.CommandText, commandCase.Lines);
@@ -424,7 +424,8 @@ public class EdEditorPosixComplianceBaselineTests
         var result = editor.ExecuteCommand($"0r !{commandCase.CommandText}");
 
         await Assert.That(result.BufferChanged).IsTrue();
-        await Assert.That(string.Join("\n", result.Output)).IsEqualTo(string.Join("\n", commandCase.Lines.Concat(["tail"])));
+        await Assert.That(result.Output.Count).IsEqualTo(0);
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo(string.Join("\n", commandCase.Lines.Concat(["tail"])));
     }
 
     [Test]
@@ -585,7 +586,7 @@ public class EdEditorPosixComplianceTargetTests
 
         try
         {
-            editor.ExecuteCommand(@"/a\/b/");
+            editor.ExecuteCommand(@"/(/");
         }
         catch (ArgumentException)
         {
@@ -685,19 +686,22 @@ public class EdEditorPosixComplianceTargetTests
 public class EdEditorPosixComplianceDeviationTests
 {
     [Test]
-    public async Task ExecuteCommand_CommaNumberedPrint_IsNotYetSupported()
+    public async Task ExecuteCommand_CommaNumberedPrint_IsSupported()
     {
-        // Verifies the POSIX whole-buffer comma address is not yet handled for numbered print output.
+        // Verifies the POSIX whole-buffer comma address works with numbered print output.
         var editor = EdEditorTestSupport.CreateEditor();
         editor.Append(afterLine: null, ["alpha", "beta"]);
 
-        await Assert.That(() => editor.ExecuteCommand(",n")).Throws<NotSupportedException>();
+        var result = editor.ExecuteCommand(",n");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("1\talpha\n2\tbeta");
     }
 
     [Test]
-    public async Task ExecuteCommand_FileCommandWithArgument_DoesNotSetFileNameYet()
+    public async Task ExecuteCommand_FileCommandWithArgument_SetsCurrentFileName()
     {
-        // Verifies the POSIX `f name` form is not yet implemented and currently leaves the file name unchanged.
+        // Verifies the POSIX `f name` form updates the remembered file name and display path.
         var editor = EdEditorTestSupport.CreateEditor(out var fileSystem, out _);
         fileSystem.SetFullPath("before.txt", "C:\\virtual\\before.txt");
         fileSystem.SetFullPath("after.txt", "C:\\virtual\\after.txt");
@@ -705,8 +709,8 @@ public class EdEditorPosixComplianceDeviationTests
 
         var result = editor.ExecuteCommand("f after.txt");
 
-        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("before.txt");
-        await Assert.That(editor.CurrentFilePath).IsEqualTo("C:\\virtual\\before.txt");
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("after.txt");
+        await Assert.That(editor.CurrentFilePath).IsEqualTo("C:\\virtual\\after.txt");
     }
 
     [Test]
@@ -720,16 +724,16 @@ public class EdEditorPosixComplianceDeviationTests
     }
 
     [Test]
-    public async Task ExecuteCommand_SubstituteAmpersandReplacement_IsHandledLiterally()
+    public async Task ExecuteCommand_SubstituteAmpersandReplacement_ExpandsMatchedText()
     {
-        // Verifies the POSIX replacement token `&` is not yet expanded to the matched text.
+        // Verifies the POSIX replacement token `&` expands to the matched text.
         var editor = EdEditorTestSupport.CreateEditor();
         editor.Append(afterLine: null, ["beta"]);
 
         var result = editor.ExecuteCommand("s/beta/&x/");
 
         await Assert.That(result.BufferChanged).IsTrue();
-        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo("&x");
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo("betax");
     }
 
     [Test]
@@ -745,23 +749,29 @@ public class EdEditorPosixComplianceDeviationTests
     }
 
     [Test]
-    public async Task ExecuteCommand_BareCommaDefaultPrint_IsNotYetSupported()
+    public async Task ExecuteCommand_BareCommaDefaultPrint_PrintsWholeBuffer()
     {
-        // Verifies the POSIX bare comma default-print form is not yet implemented.
+        // Verifies the POSIX bare comma default-print form prints the whole buffer.
         var editor = EdEditorTestSupport.CreateEditor();
         editor.Append(afterLine: null, ["alpha", "beta"]);
 
-        await Assert.That(() => editor.ExecuteCommand(",")).Throws<NotSupportedException>();
+        var result = editor.ExecuteCommand(",");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("alpha\nbeta");
     }
 
     [Test]
-    public async Task ExecuteCommand_AddressedGlobalCommand_IsNotYetSupported()
+    public async Task ExecuteCommand_AddressedGlobalCommand_AppliesWithinAddressedRange()
     {
-        // Verifies addressed global commands are not yet parsed before the `g` command body.
+        // Verifies addressed global commands apply only within the selected range.
         var editor = EdEditorTestSupport.CreateEditor();
         editor.Append(afterLine: null, ["alpha", "beta", "beta again"]);
 
-        await Assert.That(() => editor.ExecuteCommand("2,3g/beta/p")).Throws<NotSupportedException>();
+        var result = editor.ExecuteCommand("2,3g/beta/p");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("beta\nbeta again");
     }
 
     [Test]
@@ -791,29 +801,35 @@ public class EdEditorPosixComplianceDeviationTests
     }
 
     [Test]
-    public async Task ExecuteCommand_SubstituteAlternateDelimiter_IsNotYetSupported()
+    public async Task ExecuteCommand_SubstituteAlternateDelimiter_IsSupported()
     {
-        // Verifies substitute commands still require `/` instead of supporting POSIX-style alternate delimiters.
+        // Verifies substitute commands accept POSIX-style alternate delimiters.
         var editor = EdEditorTestSupport.CreateEditor();
         editor.Append(afterLine: null, ["alpha"]);
 
-        await Assert.That(() => editor.ExecuteCommand("s#alpha#beta#")).Throws<NotSupportedException>();
+        var result = editor.ExecuteCommand("s#alpha#beta#");
+
+        await Assert.That(result.BufferChanged).IsTrue();
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo("beta");
     }
 
     [Test]
-    public async Task ExecuteCommand_GlobalAlternateDelimiter_IsNotYetSupported()
+    public async Task ExecuteCommand_GlobalAlternateDelimiter_IsSupported()
     {
-        // Verifies global commands still require `/` instead of supporting POSIX-style alternate delimiters.
+        // Verifies global commands accept POSIX-style alternate delimiters.
         var editor = EdEditorTestSupport.CreateEditor();
         editor.Append(afterLine: null, ["alpha", "beta"]);
 
-        await Assert.That(() => editor.ExecuteCommand("g#beta#p")).Throws<NotSupportedException>();
+        var result = editor.ExecuteCommand("g#beta#p");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("beta");
     }
 
     [Test]
-    public async Task ExecuteCommand_ReadReturnsWholeBufferOutput_InsteadOfStatusOnly()
+    public async Task ExecuteCommand_ReadReturnsStatusOnly()
     {
-        // Verifies `r` currently returns the whole buffer contents after insertion instead of only reporting read status.
+        // Verifies `r` reports read status without echoing the whole buffer as command output.
         var fileCase = EdEditorTestSupport.FileCaseAt(0);
         var editor = EdEditorTestSupport.CreateEditor(out var fileSystem, out _);
         EdEditorTestSupport.SeedFile(fileSystem, fileCase);
@@ -822,27 +838,33 @@ public class EdEditorPosixComplianceDeviationTests
         var result = editor.ExecuteCommand($"1r {fileCase.Path}");
 
         await Assert.That(result.BufferChanged).IsTrue();
-        await Assert.That(string.Join("\n", result.Output)).IsEqualTo(string.Join("\n", new[] { "header" }.Concat(fileCase.Lines)));
+        await Assert.That(result.Output.Count).IsEqualTo(0);
     }
 
     [Test]
-    public async Task ExecuteCommand_SearchWithEscapedDelimiter_CurrentlySurfacesRegexParsingFailure()
+    public async Task ExecuteCommand_SearchWithEscapedDelimiter_MatchesLiteralDelimiter()
     {
-        // Verifies escaped search delimiters are not parsed yet and currently fall through to a regex parsing failure.
+        // Verifies escaped search delimiters allow matching literal delimiter text.
         var editor = EdEditorTestSupport.CreateEditor();
         editor.Append(afterLine: null, ["path/a/b"]);
 
-        await Assert.That(() => editor.ExecuteCommand(@"/a\/b/")).Throws<ArgumentException>();
+        var result = editor.ExecuteCommand(@"/a\/b/");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("path/a/b");
     }
 
     [Test]
-    public async Task ExecuteCommand_SubstituteWithEscapedDelimiter_CurrentlySurfacesRegexParsingFailure()
+    public async Task ExecuteCommand_SubstituteWithEscapedDelimiter_ReplacesLiteralDelimiterText()
     {
-        // Verifies escaped substitute delimiters are not parsed yet and currently fall through to a regex parsing failure.
+        // Verifies escaped substitute delimiters allow matching literal delimiter text.
         var editor = EdEditorTestSupport.CreateEditor();
         editor.Append(afterLine: null, ["path/a/b"]);
 
-        await Assert.That(() => editor.ExecuteCommand(@"s/a\/b/x/")).Throws<ArgumentException>();
+        var result = editor.ExecuteCommand(@"s/a\/b/x/");
+
+        await Assert.That(result.BufferChanged).IsTrue();
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo("path/x");
     }
 
     [Test]
@@ -859,25 +881,28 @@ public class EdEditorPosixComplianceDeviationTests
     }
 
     [Test]
-    public async Task ExecuteCommand_GlobalWithEscapedDelimiter_IsNotYetParsed()
+    public async Task ExecuteCommand_GlobalWithEscapedDelimiter_MatchesLiteralDelimiter()
     {
-        // Verifies escaped delimiters in global patterns are not parsed yet and are rejected during command parsing.
+        // Verifies escaped delimiters in global patterns allow matching literal delimiter text.
         var editor = EdEditorTestSupport.CreateEditor();
         editor.Append(afterLine: null, ["path/a/b"]);
 
-        await Assert.That(() => editor.ExecuteCommand(@"g/a\/b/p")).Throws<NotSupportedException>();
+        var result = editor.ExecuteCommand(@"g/a\/b/p");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("path/a/b");
     }
 
     [Test]
-    public async Task ExecuteCommand_HelpAfterRegexParsingFailure_ReturnsNoOutput()
+    public async Task ExecuteCommand_HelpAfterRegexParsingFailure_ReturnsCapturedError()
     {
-        // Verifies regex parsing failures are not captured by `h` because they currently bypass the editor's captured error set.
+        // Verifies regex parsing failures are captured by `h` after command execution errors.
         var editor = EdEditorTestSupport.CreateEditor();
         editor.Append(afterLine: null, ["path/a/b"]);
 
         try
         {
-            editor.ExecuteCommand(@"/a\/b/");
+            editor.ExecuteCommand(@"/(/");
         }
         catch (ArgumentException)
         {
@@ -886,7 +911,7 @@ public class EdEditorPosixComplianceDeviationTests
         var result = editor.ExecuteCommand("h");
 
         await Assert.That(result.BufferChanged).IsFalse();
-        await Assert.That(result.Output.Count).IsEqualTo(0);
+        await Assert.That(result.Output.Count).IsEqualTo(1);
     }
 
     [Test]
@@ -900,9 +925,9 @@ public class EdEditorPosixComplianceDeviationTests
     }
 
     [Test]
-    public async Task ExecuteCommand_ReadFromShellReturnsWholeBufferOutput_InsteadOfStatusOnly()
+    public async Task ExecuteCommand_ReadFromShellReturnsStatusOnly()
     {
-        // Verifies `r !cmd` currently returns the whole buffer contents after insertion instead of only reporting read status.
+        // Verifies `r !cmd` reports read status without echoing the whole buffer as command output.
         var commandCase = EdEditorTestSupport.CommandCaseAt(1);
         var editor = EdEditorTestSupport.CreateEditor(out _, out var shell);
         shell.SeedOutput(commandCase.CommandText, commandCase.Lines);
@@ -911,7 +936,7 @@ public class EdEditorPosixComplianceDeviationTests
         var result = editor.ExecuteCommand($"1r !{commandCase.CommandText}");
 
         await Assert.That(result.BufferChanged).IsTrue();
-        await Assert.That(string.Join("\n", result.Output)).IsEqualTo(string.Join("\n", new[] { "header" }.Concat(commandCase.Lines)));
+        await Assert.That(result.Output.Count).IsEqualTo(0);
     }
 
     [Test]
