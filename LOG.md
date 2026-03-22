@@ -96,3 +96,90 @@
     - Added new red-state address parsing tests for `.`, `$`, relative backward addresses, and mark addresses.
     - Added new red-state file-command parsing tests for `w`, `W`, and `e` command forms.
     - Built `Ed.Tests` successfully to verify the new tests compile without changing the core editor logic.
+
+13. Prompt
+    > *Why can't I see the tests in the solution?*
+
+    Action
+    - Checked the loaded workspace projects and confirmed that only `Ed\Ed.csproj` is currently included in the loaded solution.
+    - Verified that `Ed.Tests\Ed.Tests.csproj` exists on disk but is not part of the loaded solution.
+    - Explained that the tests are not visible in `Solution Explorer` because the test project has not been added to the solution.
+
+14. Prompt
+    > *Update LOG.md*
+
+    Action
+    - Updated `LOG.md` to append the latest prompts and actions in the requested sequential format.
+
+15. Prompt
+    > *Run the tests and fix the issues.*
+
+    Action
+    - Ran the `Ed.Tests` suite and identified failing command parsing, substitution, and global command behaviors in `EdEditor`.
+    - Implemented the missing `ExecuteCommand` parsing paths for addressed print, delete, file, prompt, write, edit, search, and global commands.
+    - Fixed current-file display handling and previous-pattern substitution reuse behavior.
+    - Corrected inconsistent substitution test data in `Ed.Tests` and validated the results with targeted and full test runs.
+    - Confirmed the full `Ed.Tests` suite passed.
+
+16. Prompt
+    > *It's ok to deviate from the canonical ed when it comes to regex support. Integrate the Regex library.*
+
+    Action
+    - Added regex-focused tests for API and command-based search, substitution, and global matching behavior.
+    - Integrated `.NET Regex` into `EdEditor` search, substitution, and global matching paths.
+    - Preserved the existing editor API while allowing regex behavior to deviate from canonical UNIX `ed` semantics as requested.
+    - Built `Ed.Tests` and confirmed the full test suite passed with the new regex coverage.
+
+17. Prompt
+    > *Do we have a filesystem abstraction implemented yet? If no, implement it using TDD. Write the tests first and confirm that they're failing. When you're ready, implement the core logic.*
+
+    Action
+    - Confirmed there was only the `IEdFileSystem` interface and the fake test double, with no concrete production implementation.
+    - Planned a TDD flow for a concrete filesystem implementation.
+
+18. Prompt
+    > *Go ahead.*
+
+    Action
+    - Added `Ed.Tests\EdFileSystemTests.cs` first to cover path normalization, existence checks, reading, writing, and appending through a concrete filesystem implementation.
+    - Added a minimal placeholder `Ed\EdFileSystem.cs` so the new tests could compile.
+    - Ran the targeted filesystem tests and confirmed all of them failed with `NotImplementedException`, establishing the expected red state.
+
+19. Prompt
+    > *Go ahead.*
+
+    Action
+    - Implemented `EdFileSystem` using the .NET filesystem APIs for `Exists`, `GetFullPath`, `ReadAllLines`, `WriteAllLines`, and `AppendAllLines`.
+    - Ensured write and append operations create parent directories when needed.
+    - Built `Ed.Tests`, reran `EdFileSystemTests`, and confirmed the new filesystem tests passed.
+    - Ran the full `Ed.Tests` suite and confirmed all tests passed.
+
+20. Prompt
+    > *Do the same for the shell comand abstraction.*
+
+    Action
+    - Confirmed there was only the `IEdShell` interface and the fake shell test double, with no concrete production implementation.
+    - Planned a TDD flow for a concrete shell implementation.
+
+21. Prompt
+    > *go ahead*
+
+    Action
+    - Added `Ed.Tests\EdShellTests.cs` first to cover reading command output, executing a command, and piping lines to a command's standard input.
+    - Added a minimal placeholder `Ed\EdShell.cs` so the new tests could compile.
+    - Ran the targeted shell tests and confirmed all of them failed with `NotImplementedException`, establishing the expected red state.
+
+22. Prompt
+    > *go ahead*
+
+    Action
+    - Implemented `EdShell` using `pwsh.exe` and `System.Diagnostics.Process`.
+    - Added support for capturing command output, executing commands, piping editor lines to standard input, and surfacing shell failures through exceptions.
+    - Built `Ed.Tests`, reran `EdShellTests`, and confirmed the new shell tests passed.
+    - Ran the full `Ed.Tests` suite and confirmed all tests passed.
+
+23. Prompt
+    > *update LOG.md*
+
+    Action
+    - Updated `LOG.md` to append the latest prompts and actions in the requested sequential format.

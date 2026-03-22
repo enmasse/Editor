@@ -210,6 +210,19 @@ public class EdEditorCommandParsingCoverageTests
     }
 
     [Test]
+    public async Task ExecuteCommand_ParsesRegexForwardSearchCommand()
+    {
+        // Verifies command parsing routes forward searches through the .NET Regex engine.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha", "item-42", "item-x"]);
+
+        var result = editor.ExecuteCommand(@"/item-\d+/" );
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("item-42");
+    }
+
+    [Test]
     public async Task ExecuteCommand_ParsesBackwardSearchCommand()
     {
         // Verifies command parsing handles backward search commands and prints the matched line.
@@ -221,6 +234,19 @@ public class EdEditorCommandParsingCoverageTests
 
         await Assert.That(result.BufferChanged).IsFalse();
         await Assert.That(string.Join("\n", result.Output)).IsEqualTo(searchCase.Lines[3]);
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesRegexSubstituteCommand()
+    {
+        // Verifies command parsing routes substitute commands through the .NET Regex engine.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["prefix-item-42-item-84-suffix"]);
+
+        var result = editor.ExecuteCommand(@"1s/item-(\d+)/[$1]/");
+
+        await Assert.That(result.BufferChanged).IsTrue();
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo("prefix-[42]-item-84-suffix");
     }
 
     [Test]

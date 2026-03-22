@@ -324,6 +324,18 @@ public class EdEditorApiTests
     }
 
     [Test]
+    public async Task Search_UsesRegexPatternMatching()
+    {
+        // Verifies search evaluates patterns using the .NET Regex engine.
+        var editor = CreateEditor();
+        editor.Append(afterLine: null, new[] { "alpha", "item-42", "item-x" });
+
+        var lineNumber = editor.Search(@"item-\d+", EdSearchDirection.Forward, startLine: 1);
+
+        await Assert.That(lineNumber).IsEqualTo(2);
+    }
+
+    [Test]
     public async Task Substitute_ReplacesPatternWithinRange()
     {
         // Verifies substitute replaces matching text within the addressed range.
@@ -333,7 +345,19 @@ public class EdEditorApiTests
 
         editor.Substitute(new EdLineRange(1, 1), substitutionCase.Pattern, substitutionCase.Replacement);
 
-        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo(substitutionCase.SourceLine.Replace(substitutionCase.Pattern, substitutionCase.Replacement, StringComparison.Ordinal));
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo($"prefix-{substitutionCase.Replacement}-{substitutionCase.Pattern}-suffix");
+    }
+
+    [Test]
+    public async Task Substitute_UsesRegexCaptureGroups()
+    {
+        // Verifies substitute applies .NET Regex capture groups in the replacement text.
+        var editor = CreateEditor();
+        editor.Append(afterLine: null, new[] { "prefix-item-42-item-84-suffix" });
+
+        editor.Substitute(new EdLineRange(1, 1), @"item-(\d+)", "[$1]");
+
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo("prefix-[42]-item-84-suffix");
     }
 
     [Test]
@@ -352,6 +376,18 @@ public class EdEditorApiTests
             new EdSubstitutionOptions(UsePreviousPattern: true));
 
         await Assert.That(string.Join("\n", editor.Print())).IsEqualTo($"prefix-{substitutionCase.Replacement}-final-suffix");
+    }
+
+    [Test]
+    public async Task Global_UsesRegexPatternMatching()
+    {
+        // Verifies global applies its command list using .NET Regex matching semantics.
+        var editor = CreateEditor();
+        editor.Append(afterLine: null, new[] { "alpha", "item-42", "item-x", "tail" });
+
+        editor.Global(new EdLineRange(1, 4), @"item-\d+", "d");
+
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo("alpha\nitem-x\ntail");
     }
 
     [Test]
@@ -494,7 +530,7 @@ public class EdEditorApiTests
         {
             var pattern = tokens[index];
             var replacement = tokens[index + 1];
-            var sourceLine = $"prefix-{pattern}-suffix";
+            var sourceLine = $"prefix-{pattern}-{pattern}-suffix";
 
             yield return (pattern, replacement, sourceLine);
         }
