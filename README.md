@@ -56,12 +56,12 @@ The current suite contains 142 passing tests.
 The current implementation supports a substantial subset of classic `ed` behavior, including:
 
 - text input commands: `a`, `i`, `c`
-- printing commands: `p`, `n`, `l`, empty command, addressed print, `,p`
+- printing commands: `p`, `n`, empty command, addressed print, `,p`, `,l`
 - buffer mutation commands: `d`, `j`, `m`, `t`, `u`, `k`
 - file commands: `e`, `E`, `r`, `w`, `W`, `f`
 - shell integration: `!`, `r !`, `w !`
 - search and substitution: `/.../`, `?...?`, `s/.../.../`, previous-pattern reuse, occurrence flags, global replacement
-- global commands: `g/.../d`, `g/.../p`, `g/.../n`, `g/.../l`, `g/.../s/.../.../`, plus `v` variants
+- global commands: `g/.../d`, `g/.../p`, `g/.../n`, `g/.../s/.../.../`, plus `v` variants
 - state and utility commands: `=`, `P`, `H`, `h`, `z`, `q`, `q!`, `Q`
 
 Address parsing includes support for:

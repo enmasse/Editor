@@ -20,4 +20,5 @@ internal sealed record EditorSnapshot(
 internal sealed record ParsedCommand(
     EdLineRange? Range,
     bool HasAddress,
+    bool UsedSearchAddress,
     string CommandText);

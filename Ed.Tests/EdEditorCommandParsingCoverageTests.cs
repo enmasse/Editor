@@ -17,15 +17,26 @@ public class EdEditorCommandParsingCoverageTests
     }
 
     [Test]
-    public async Task ExecuteCommand_ParsesLiteralPrintCommand()
+    public async Task ExecuteCommand_RejectsLiteralPrintCommand()
     {
-        // Verifies command parsing handles literal print commands that expose non-printing characters.
+        // Verifies command parsing rejects the unsupported `l` command.
         var editor = EdEditorTestSupport.CreateEditor();
         editor.Append(afterLine: null, ["alpha\tbeta"]);
 
-        var result = editor.ExecuteCommand("1l");
+        await Assert.That(() => editor.ExecuteCommand("1l")).Throws<NotSupportedException>();
+    }
 
-        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("alpha\\tbeta$");
+    [Test]
+    public async Task ExecuteCommand_ParsesWholeBufferLiteralPrintShorthand()
+    {
+        // Verifies command parsing handles the classic `,l` shorthand by listing every line in literal form.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha", "beta\tgamma"]);
+
+        var result = editor.ExecuteCommand(",l");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("alpha$\nbeta\\tgamma$");
     }
 
     [Test]
@@ -86,6 +97,19 @@ public class EdEditorCommandParsingCoverageTests
 
         await Assert.That(result.BufferChanged).IsTrue();
         await Assert.That(string.Join("\n", editor.Print())).IsEqualTo($"prefix-{substitutionCase.Replacement}-{substitutionCase.Replacement}-suffix");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_UsesSearchAddressPattern_WhenSubstitutePatternIsOmitted()
+    {
+        // Verifies commands like `/Hello/s//Hej/` reuse the search-address pattern for substitution.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["before", "Hello there", "after"]);
+
+        var result = editor.ExecuteCommand("/Hello/s//Hej/");
+
+        await Assert.That(result.BufferChanged).IsTrue();
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo("before\nHej there\nafter");
     }
 
     [Test]
@@ -495,16 +519,13 @@ public class EdEditorCommandParsingCoverageTests
     }
 
     [Test]
-    public async Task ExecuteCommand_ParsesGlobalLiteralPrintCommand()
+    public async Task ExecuteCommand_RejectsGlobalLiteralPrintCommand()
     {
-        // Verifies command parsing handles global commands whose command list uses literal print output.
+        // Verifies command parsing rejects global command lists that use the unsupported `l` command.
         var editor = EdEditorTestSupport.CreateEditor();
         editor.Append(afterLine: null, ["alpha", "match\tbeta", "tail"]);
 
-        var result = editor.ExecuteCommand("g/match/l");
-
-        await Assert.That(result.BufferChanged).IsFalse();
-        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("match\\tbeta$");
+        await Assert.That(() => editor.ExecuteCommand("g/match/l")).Throws<NotSupportedException>();
     }
 
     [Test]

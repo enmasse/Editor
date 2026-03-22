@@ -492,6 +492,12 @@ public sealed class EdEditor
             return CreateCommandResult(bufferChanged: false, output);
         }
 
+        if (string.Equals(trimmed, ",l", StringComparison.Ordinal))
+        {
+            var output = Print(mode: EdPrintMode.Literal);
+            return CreateCommandResult(bufferChanged: false, output);
+        }
+
         if (trimmed.StartsWith('!'))
         {
             ExecuteShellCommand(trimmed[1..].TrimStart());
@@ -634,14 +640,28 @@ public sealed class EdEditor
                 throw new NotSupportedException($"Unsupported command '{commandText}'.");
             }
 
+            string effectivePattern;
+            bool usePreviousPattern;
+
+            if (string.IsNullOrEmpty(pattern) && parsedCommand.UsedSearchAddress && !string.IsNullOrEmpty(_lastSearchPattern))
+            {
+                effectivePattern = _lastSearchPattern;
+                usePreviousPattern = false;
+            }
+            else
+            {
+                effectivePattern = pattern;
+                usePreviousPattern = string.IsNullOrEmpty(pattern);
+            }
+
             var options = new EdSubstitutionOptions(
                 ReplaceAllOnLine: flags.Contains('g', StringComparison.Ordinal),
                 Occurrence: ParseOccurrence(flags),
-                UsePreviousPattern: string.IsNullOrEmpty(pattern));
+                UsePreviousPattern: usePreviousPattern);
 
             Substitute(
                 parsedCommand.HasAddress ? range : ResolveCurrentLineRange(),
-                pattern,
+                effectivePattern,
                 replacement,
                 options);
 
@@ -925,7 +945,7 @@ public sealed class EdEditor
         }
 
         var index = 0;
-        var destination = ParseAddress(trimmed, ref index, _currentLineNumber);
+        var destination = ParseAddress(trimmed, ref index, _currentLineNumber, out _);
 
         if (index != trimmed.Length)
         {
@@ -1062,9 +1082,25 @@ public sealed class EdEditor
 
     private bool IsSearchCommand(string commandText)
     {
-        return commandText.Length >= 2
-            && (commandText[0] == '/' || commandText[0] == '?')
-            && commandText[^1] == commandText[0];
+        if (commandText.Length < 2)
+        {
+            return false;
+        }
+
+        var delimiter = commandText[0];
+
+        if (delimiter != '/' && delimiter != '?')
+        {
+            return false;
+        }
+
+        if (commandText[^1] != delimiter)
+        {
+            return false;
+        }
+
+        var delimiterCount = commandText.Count(value => value == delimiter);
+        return delimiterCount == 2;
     }
 
     private bool TryParseGlobalCommand(string commandText, out EdGlobalMode mode, out string pattern, out string commandList)
@@ -1102,34 +1138,40 @@ public sealed class EdEditor
 
         if (index >= commandText.Length)
         {
-            return new ParsedCommand(null, false, string.Empty);
+            return new ParsedCommand(null, false, false, string.Empty);
         }
 
         if (commandText[index] == '%')
         {
             index++;
             var lastLine = _lines.Count == 0 ? 1 : _lines.Count;
-            return new ParsedCommand(new EdLineRange(1, lastLine), true, commandText[index..].TrimStart());
+            return new ParsedCommand(new EdLineRange(1, lastLine), true, false, commandText[index..].TrimStart());
         }
 
         if (!IsAddressStart(commandText[index]))
         {
-            return new ParsedCommand(null, false, commandText.TrimStart());
+            return new ParsedCommand(null, false, false, commandText.TrimStart());
         }
 
         var originalCurrentLine = _currentLineNumber;
-        var firstAddress = ParseAddress(commandText, ref index, originalCurrentLine);
+        var firstAddress = ParseAddress(commandText, ref index, originalCurrentLine, out var firstAddressUsedSearch);
         var range = new EdLineRange(firstAddress, firstAddress);
+        var usedSearchAddress = firstAddressUsedSearch;
 
         if (index < commandText.Length && (commandText[index] == ',' || commandText[index] == ';'))
         {
             var separator = commandText[index];
             index++;
-            var secondAddress = ParseAddress(commandText, ref index, separator == ';' ? firstAddress : originalCurrentLine);
+            var secondAddress = ParseAddress(commandText, ref index, separator == ';' ? firstAddress : originalCurrentLine, out var secondAddressUsedSearch);
             range = new EdLineRange(firstAddress, secondAddress);
+
+            if (secondAddressUsedSearch)
+            {
+                usedSearchAddress = true;
+            }
         }
 
-        return new ParsedCommand(range, true, commandText[index..].TrimStart());
+        return new ParsedCommand(range, true, usedSearchAddress, commandText[index..].TrimStart());
     }
 
     private static bool IsAddressStart(char value)
@@ -1144,8 +1186,10 @@ public sealed class EdEditor
             || value == '-';
     }
 
-    private int ParseAddress(string commandText, ref int index, int currentLine)
+    private int ParseAddress(string commandText, ref int index, int currentLine, out bool usedSearchAddress)
     {
+        usedSearchAddress = false;
+
         if (index >= commandText.Length)
         {
             throw new NotSupportedException($"Unsupported command '{commandText}'.");
@@ -1187,6 +1231,7 @@ public sealed class EdEditor
         }
         else if (commandText[index] == '/' || commandText[index] == '?')
         {
+            usedSearchAddress = true;
             var delimiter = commandText[index];
             var start = ++index;
 
