@@ -337,6 +337,24 @@ public class EdEditorApiTests
     }
 
     [Test]
+    public async Task Substitute_UsesPreviousPattern_WhenRequested()
+    {
+        // Verifies substitute can reuse the most recent pattern when the follow-up command omits it.
+        var substitutionCase = SubstitutionCases().First();
+        var editor = CreateEditor();
+        editor.Append(afterLine: null, new[] { substitutionCase.SourceLine });
+
+        editor.Substitute(new EdLineRange(1, 1), substitutionCase.Pattern, substitutionCase.Replacement);
+        editor.Substitute(
+            new EdLineRange(1, 1),
+            string.Empty,
+            "final",
+            new EdSubstitutionOptions(UsePreviousPattern: true));
+
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo($"prefix-{substitutionCase.Replacement}-final-suffix");
+    }
+
+    [Test]
     public async Task Global_ExecutesCommandListForMatches()
     {
         // Verifies global applies a command list to every matching line in the addressed range.
@@ -346,7 +364,7 @@ public class EdEditorApiTests
 
         editor.Global(new EdLineRange(1, searchCase.Lines.Length), searchCase.Pattern, "d");
 
-        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo(searchCase.Lines[0]);
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo(searchCase.Lines[0] + "\n" + searchCase.Lines[2]);
     }
 
     [Test]
@@ -512,11 +530,19 @@ public class EdEditorApiTests
     private static IEnumerable<int> CreatePositiveIntegers(int count)
     {
         var generator = FsCheck.Fluent.Gen.Choose(1, 20);
-        var samples = FsCheck.Fluent.Gen.Sample(generator, 0, count * 8)
+        var samples = FsCheck.Fluent.Gen.Sample(generator, 1, count * 16)
             .Distinct()
-            .Take(count);
+            .ToList();
 
-        foreach (var sample in samples)
+        for (var value = 1; samples.Count < count && value <= 20; value++)
+        {
+            if (!samples.Contains(value))
+            {
+                samples.Add(value);
+            }
+        }
+
+        foreach (var sample in samples.Take(count))
         {
             yield return sample;
         }
@@ -525,12 +551,17 @@ public class EdEditorApiTests
     private static IEnumerable<string> CreateTokens(int count)
     {
         var generator = FsCheck.Fluent.Gen.Choose(1000, 999999);
-        var samples = FsCheck.Fluent.Gen.Sample(generator, 0, count * 12)
+        var samples = FsCheck.Fluent.Gen.Sample(generator, 1, count * 24)
             .Select(value => $"token{value}")
             .Distinct(StringComparer.Ordinal)
-            .Take(count);
+            .ToList();
 
-        foreach (var sample in samples)
+        for (var index = samples.Count; index < count; index++)
+        {
+            samples.Add($"tokenfallback{index}");
+        }
+
+        foreach (var sample in samples.Take(count))
         {
             yield return sample;
         }

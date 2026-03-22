@@ -63,3 +63,20 @@
    Action
    - Created `LOG.md` at the workspace root.
    - Recorded the sequence of prompts and actions in this file.
+
+9. Prompt
+   > *As you can see there's a plan ready for execution. Read LOG.md for context. The existing tests are green. If you need to add something to the API, then do so, but keep the new functions or extensions in the core editor unimplemented before you've added new tests.*
+
+   Action
+   - Reviewed `LOG.md` and the pending plan context.
+   - Audited the existing `EdEditor` API and test coverage to identify missing canonical `ed` behaviors.
+   - Added new conformance tests covering previous-pattern substitution reuse, implicit current-line command parsing, and numeric substitution occurrence parsing.
+   - Built `Ed.Tests` successfully.
+   - Ran the test executable directly with `dotnet run` because `dotnet test` is blocked by `Microsoft.Testing.Platform` on `.NET 10` in the current configuration.
+   - Confirmed two new tests fail as intended against the current implementation: plain `p` defaults to the whole buffer instead of the current line, and previous-pattern substitution reuse does not yet behave as expected.
+
+10. Prompt
+    > *Add a sequential log of our actions to LOG.md with my prompts in quoted italic.*
+
+    Action
+    - Updated `LOG.md` to append the latest prompts and actions in the requested sequential format.

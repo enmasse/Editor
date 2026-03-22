@@ -89,6 +89,47 @@ public class EdEditorCommandParsingCoverageTests
     }
 
     [Test]
+    public async Task ExecuteCommand_ParsesCurrentLinePrintCommand_WhenRangeIsOmitted()
+    {
+        // Verifies command parsing defaults plain print commands to the current line when no address is supplied.
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, ["alpha", "beta", "gamma"]);
+
+        var result = editor.ExecuteCommand("p");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("gamma");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesCurrentLineSubstituteCommand_WhenRangeIsOmitted()
+    {
+        // Verifies command parsing defaults substitute commands to the current line when no address is supplied.
+        var substitutionCase = EdEditorTestSupport.SubstitutionCaseAt(0);
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, [substitutionCase.SourceLine]);
+
+        var result = editor.ExecuteCommand($"s/{substitutionCase.Pattern}/{substitutionCase.Replacement}/");
+
+        await Assert.That(result.BufferChanged).IsTrue();
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo($"prefix-{substitutionCase.Replacement}-{substitutionCase.Pattern}-suffix");
+    }
+
+    [Test]
+    public async Task ExecuteCommand_ParsesSubstituteOccurrenceFlagCommand()
+    {
+        // Verifies command parsing handles numeric substitute flags that target a specific match occurrence.
+        var substitutionCase = EdEditorTestSupport.SubstitutionCaseAt(1);
+        var editor = EdEditorTestSupport.CreateEditor();
+        editor.Append(afterLine: null, [substitutionCase.SourceLine]);
+
+        var result = editor.ExecuteCommand($"1s/{substitutionCase.Pattern}/{substitutionCase.Replacement}/2");
+
+        await Assert.That(result.BufferChanged).IsTrue();
+        await Assert.That(string.Join("\n", editor.Print())).IsEqualTo($"prefix-{substitutionCase.Pattern}-{substitutionCase.Replacement}-suffix");
+    }
+
+    [Test]
     public async Task ExecuteCommand_ParsesGlobalDeleteCommand()
     {
         // Verifies command parsing handles matching global delete commands.
