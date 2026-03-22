@@ -258,6 +258,145 @@
     - Added support for classic commands including `a`, `i`, `c`, `j`, `m`, `t`, `k`, `u`, `h`, `H`, `E`, and `Q`.
     - Added default print behaviors for address-only and empty commands.
     - Extended address parsing for `%`, `;`, search addresses, explicit offsets, and previous-search reuse.
+
+33. Prompt
+    > *Run tests*
+
+    Action
+    - Ran `Ed.Tests`.
+    - Identified two failing tests that still expected literal print commands to be unsupported.
+
+34. Prompt
+    > *Yes*
+
+    Action
+    - Updated `Ed.Tests\EdEditorCommandParsingCoverageTests.cs` so the literal print tests assert current behavior for `1l` and `g/match/l`.
+    - Ran targeted tests and then the full `Ed.Tests` suite.
+    - Confirmed all tests passed.
+
+35. Prompt
+    > *run tests*
+
+    Action
+    - Ran the full `Ed.Tests` suite again.
+    - Confirmed the suite passed.
+
+36. Prompt
+    > *So are there any gaps in our POSIX compliancy test suite? Do some research.*
+
+    Action
+    - Reviewed the existing POSIX-oriented coverage.
+    - Identified major gaps around address grammar, error behavior, search and substitute semantics, regex differences, global command behavior, literal print behavior, and file-command semantics.
+
+37. Prompt
+    > *Close the gaps in the test suite*
+
+    Action
+    - Expanded `Ed.Tests\EdEditorPosixComplianceTests.cs` with additional baseline and deviation coverage.
+    - Added tests for explicit `=`, zero-address rejection for line commands, invalid marks, previous-pattern failures, quit and write errors, delete current-line behavior, and undo semantics.
+    - Ran the POSIX-focused tests and the full `Ed.Tests` suite and confirmed they passed.
+
+38. Prompt
+    > *So are there any gaps in our POSIX compliancy test suite? Do some research.*
+
+    Action
+    - Reassessed the POSIX coverage after the new tests were added.
+    - Highlighted remaining gaps around regex compatibility, delimiter parsing, global semantics, file-command behavior, error capture, and literal-print rules.
+
+39. Prompt
+    > *Close the gaps in the test suite*
+
+    Action
+    - Added more POSIX baseline and deviation tests for `e` without an argument, `w file` remembered filename behavior, `h` after missing marks, `.NET Regex`-specific behavior, alternate delimiters, and `r` output semantics.
+    - Built `Ed.Tests` and confirmed the suite passed.
+
+40. Prompt
+    > *Close the gaps in the test suite*
+
+    Action
+    - Added further POSIX tests for `h` without prior errors, `u` without a snapshot, ranged writes preserving the modified flag, global print current-line behavior, clean quit, escaped delimiters, and `%` as a non-POSIX extension.
+    - Ran the focused POSIX tests and the full `Ed.Tests` suite and confirmed they passed.
+
+41. Prompt
+    > *Close the gaps in the test suite*
+
+    Action
+    - Added tests for failed quit leaving the editor usable, search error capture, failed `e` on a modified buffer, undo after `e`, global substitute current-line behavior, and escaped global delimiter behavior.
+    - Built and ran `Ed.Tests` successfully.
+
+42. Prompt
+    > *Close the gaps in the test suite*
+
+    Action
+    - Added tests for help after search failures, deleting the last line, `0r !cmd`, `q!`, bare `;`, and `r !cmd` output behavior.
+    - Ran the POSIX tests and the full `Ed.Tests` suite and confirmed they passed.
+
+43. Prompt
+    > *What are the deviations?*
+
+    Action
+    - Summarized the currently documented POSIX deviations in the test suite.
+
+44. Prompt
+    > *The second bullet.*
+
+    Action
+    - Grouped the documented deviations by category, including parser, regex and replacement, global-command, file and I/O, search, and extension behavior.
+
+45. Prompt
+    > *When in doubt, go for posix compliancy. Let's close the gap in the tests. If those tests fail that's ok.*
+
+    Action
+    - Added a new `EdEditorPosixComplianceTargetTests` class with POSIX target tests for `,n`, `f name`, bare `,`, addressed global commands, `&` replacement, alternate substitute delimiters, and escaped search delimiters.
+    - Ran the focused target tests and confirmed they failed, documenting implementation gaps.
+
+46. Prompt
+    > *Add tests for those.*
+
+    Action
+    - Added more POSIX target and deviation tests for BRE grouping and backreferences, read-command output semantics, addressed non-matching global commands, and literal print backslash behavior.
+    - Ran the focused target and deviation tests and recorded the newly exposed failures.
+
+47. Prompt
+    > *If the test require us to abandon the .net regex implementation, then set them to skipped.*
+
+    Action
+    - Marked the POSIX BRE target tests as skipped because they would require abandoning the intentional `.NET Regex` implementation.
+    - Reran the focused target suite and confirmed the BRE tests were skipped while the remaining POSIX target gaps still failed.
+
+48. Prompt
+    > *Are there any other deviations?*
+
+    Action
+    - Reviewed the remaining uncovered deviation areas.
+    - Identified likely gaps around literal print formatting, delimiter parsing, global semantics, file-command status behavior, error capture, and extensions.
+
+49. Prompt
+    > *Add tests for those.*
+
+    Action
+    - Added more POSIX target tests for escaped substitute delimiters, global alternate delimiters, escaped delimiters in global commands, `h` after regex parse failures, and literal print backslash escaping.
+    - Ran the focused target suite and recorded the remaining failures and skips.
+
+50. Prompt
+    > *Are there any other deviations?*
+
+    Action
+    - Reassessed the remaining deviations after the latest target additions.
+    - Called out likely remaining areas such as fuller literal-print rules, more non-regex parser cases, stricter global semantics, and exact file-command output semantics.
+
+51. Prompt
+    > *Add tests for those.*
+
+    Action
+    - Added further POSIX target tests for escaped substitute delimiters, global alternate delimiters, escaped global delimiters, captured help after regex parse failures, and literal print backslash escaping.
+    - Ran the focused `EdEditorPosixComplianceTargetTests` suite and confirmed one target passed, two BRE tests were skipped, and the rest failed as intended to expose current gaps.
+
+52. Prompt
+    > *update LOG.md*
+
+    Action
+    - Updated `LOG.md` to append the recent prompts and actions in the requested sequential format.
     - Added global substitute command-list support.
     - Ran the full `Ed.Tests` suite and confirmed all tests passed.
     - Built `Ed.Tests` successfully.

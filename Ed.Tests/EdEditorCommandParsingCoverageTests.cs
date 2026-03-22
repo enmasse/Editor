@@ -17,13 +17,16 @@ public class EdEditorCommandParsingCoverageTests
     }
 
     [Test]
-    public async Task ExecuteCommand_RejectsLiteralPrintCommand()
+    public async Task ExecuteCommand_ParsesLiteralPrintCommand()
     {
-        // Verifies command parsing rejects the unsupported `l` command.
+        // Verifies command parsing handles addressed literal print commands.
         var editor = EdEditorTestSupport.CreateEditor();
         editor.Append(afterLine: null, ["alpha\tbeta"]);
 
-        await Assert.That(() => editor.ExecuteCommand("1l")).Throws<NotSupportedException>();
+        var result = editor.ExecuteCommand("1l");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("alpha\\tbeta$");
     }
 
     [Test]
@@ -519,13 +522,16 @@ public class EdEditorCommandParsingCoverageTests
     }
 
     [Test]
-    public async Task ExecuteCommand_RejectsGlobalLiteralPrintCommand()
+    public async Task ExecuteCommand_ParsesGlobalLiteralPrintCommand()
     {
-        // Verifies command parsing rejects global command lists that use the unsupported `l` command.
+        // Verifies command parsing handles global command lists that use literal print output.
         var editor = EdEditorTestSupport.CreateEditor();
         editor.Append(afterLine: null, ["alpha", "match\tbeta", "tail"]);
 
-        await Assert.That(() => editor.ExecuteCommand("g/match/l")).Throws<NotSupportedException>();
+        var result = editor.ExecuteCommand("g/match/l");
+
+        await Assert.That(result.BufferChanged).IsFalse();
+        await Assert.That(string.Join("\n", result.Output)).IsEqualTo("match\\tbeta$");
     }
 
     [Test]
